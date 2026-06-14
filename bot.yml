@@ -39,4 +39,5 @@ jobs:
           OWNER_ID: ${{ secrets.OWNER_ID }}
           SUPPORT_GROUP_ID: ${{ secrets.SUPPORT_GROUP_ID }}
           DATABASE_PATH: bot.db
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           LOG_LEVEL: INFO
