@@ -8,6 +8,7 @@ OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
 SUPPORT_GROUP_ID: int = int(os.getenv("SUPPORT_GROUP_ID", "0"))
 DATABASE_PATH: str = os.getenv("DATABASE_PATH", "bot.db")
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+GEMINI_KEY = os.getenv("GEMINI_KEY")
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is not set in .env file")
