@@ -6,10 +6,14 @@ def main_admin_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="📊 Статистика", callback_data="admin:stats"),
-        InlineKeyboardButton(text="💬 Чаты", callback_data="admin:chats"),
+        InlineKeyboardButton(text="📈 Аналитика", callback_data="admin:analytics"),
     )
     builder.row(
         InlineKeyboardButton(text="🤖 Автоответы", callback_data="admin:autoreplies"),
+        InlineKeyboardButton(text="🧠 Настройки ИИ", callback_data="admin:ai"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="💬 Чаты", callback_data="admin:chats"),
         InlineKeyboardButton(text="👥 Менеджеры", callback_data="admin:managers"),
     )
     builder.row(
@@ -17,8 +21,8 @@ def main_admin_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🛡 Антиспам", callback_data="admin:antispam"),
     )
     builder.row(
-        InlineKeyboardButton(text="📈 Аналитика", callback_data="admin:analytics"),
         InlineKeyboardButton(text="🔒 Пользователи", callback_data="admin:users"),
+        InlineKeyboardButton(text="🗂 История чатов", callback_data="admin:history"),
     )
     return builder.as_markup()
 
@@ -28,6 +32,55 @@ def back_to_admin() -> InlineKeyboardMarkup:
     builder.button(text="⬅️ Назад", callback_data="admin:main")
     return builder.as_markup()
 
+
+# ── AI SETTINGS ───────────────────────────────────────────────────────────────
+
+def ai_settings_menu(settings: dict) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    mode = settings.get("mode", "smart")
+    auto = settings.get("auto_reply_enabled", 1)
+    greet = settings.get("greeting_enabled", 0)
+
+    mode_labels = {"smart": "🧠 Умный", "always": "⚡ Всегда", "off": "🔕 Выкл"}
+    builder.row(
+        InlineKeyboardButton(
+            text=f"Режим: {mode_labels.get(mode, mode)}",
+            callback_data="ai:mode_cycle"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text=f"{'✅' if auto else '❌'} Автоответ на сообщения",
+            callback_data="ai:toggle_auto"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text=f"{'✅' if greet else '❌'} Приветствие новых",
+            callback_data="ai:toggle_greet"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="✏️ Изменить промпт", callback_data="ai:edit_prompt"),
+        InlineKeyboardButton(text="👁 Просмотр промпта", callback_data="ai:view_prompt"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🗑 Очистить всю историю", callback_data="ai:clear_all_history"),
+    )
+    builder.row(InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:main"))
+    return builder.as_markup()
+
+
+def confirm_clear_history() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="⚠️ Да, очистить", callback_data="ai:clear_history_confirm"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data="admin:ai"),
+    )
+    return builder.as_markup()
+
+
+# ── CHATS ─────────────────────────────────────────────────────────────────────
 
 def chats_menu(chats: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -43,6 +96,8 @@ def chats_menu(chats: list) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+# ── AUTOREPLIES ───────────────────────────────────────────────────────────────
+
 def autoreplies_menu(autoreplies: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for ar in autoreplies:
@@ -51,10 +106,7 @@ def autoreplies_menu(autoreplies: list) -> InlineKeyboardMarkup:
                 text=f"🔑 {ar['keyword'][:20]}",
                 callback_data=f"ar:view:{ar['id']}"
             ),
-            InlineKeyboardButton(
-                text="❌",
-                callback_data=f"ar:remove:{ar['id']}"
-            )
+            InlineKeyboardButton(text="❌", callback_data=f"ar:remove:{ar['id']}"),
         )
     builder.row(InlineKeyboardButton(text="➕ Добавить автоответ", callback_data="ar:add"))
     builder.row(InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:main"))
@@ -74,6 +126,8 @@ def autoreply_type_menu() -> InlineKeyboardMarkup:
     builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin:autoreplies"))
     return builder.as_markup()
 
+
+# ── MANAGERS ──────────────────────────────────────────────────────────────────
 
 def managers_menu(managers: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -98,6 +152,8 @@ def manager_role_menu(telegram_id: int) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+# ── BROADCAST ─────────────────────────────────────────────────────────────────
+
 def broadcast_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -110,6 +166,17 @@ def broadcast_menu() -> InlineKeyboardMarkup:
     builder.row(InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:main"))
     return builder.as_markup()
 
+
+def confirm_broadcast(total: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text=f"✅ Отправить ({total} польз.)", callback_data="broadcast:confirm"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data="admin:broadcast"),
+    )
+    return builder.as_markup()
+
+
+# ── ANTISPAM ──────────────────────────────────────────────────────────────────
 
 def antispam_menu(filters: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -128,14 +195,7 @@ def antispam_menu(filters: list) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def confirm_broadcast(total: int) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text=f"✅ Отправить ({total} польз.)", callback_data="broadcast:confirm"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data="admin:broadcast"),
-    )
-    return builder.as_markup()
-
+# ── SUPPORT ───────────────────────────────────────────────────────────────────
 
 def support_user_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -146,4 +206,13 @@ def support_user_menu() -> InlineKeyboardMarkup:
 def close_ticket_btn(ticket_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Закрыть тикет", callback_data=f"support:close:{ticket_id}")
+    return builder.as_markup()
+
+
+# ── HISTORY ───────────────────────────────────────────────────────────────────
+
+def history_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="🗑 Очистить историю чата", callback_data="history:clear_prompt"))
+    builder.row(InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:main"))
     return builder.as_markup()

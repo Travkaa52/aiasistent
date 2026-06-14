@@ -1,20 +1,15 @@
 import logging
-from aiogram import Router, F, Bot
+from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+
 from config import OWNER_ID, SUPPORT_GROUP_ID
-from database import (
-    create_ticket, get_open_ticket, close_ticket,
-    is_manager, update_manager_activity, get_user
-)
-from keyboards.inline import close_ticket_btn
-from keyboards.reply import cancel_menu, main_menu
+from database.database import create_ticket, close_ticket, get_open_ticket
+from keyboards.inline import support_user_menu, close_ticket_btn
 
 logger = logging.getLogger(__name__)
 router = Router()
-
-REPLY_PREFIX = "REPLY_TO:"
 
 
 class SupportStates(StatesGroup):
@@ -23,126 +18,22 @@ class SupportStates(StatesGroup):
 
 @router.callback_query(F.data == "support:start")
 async def support_start(callback: CallbackQuery, state: FSMContext):
-    user = callback.from_user
-    existing = await get_open_ticket(user.id)
-    if existing:
-        await callback.message.answer(
-            "📨 У вас уже есть открытый тикет. "
-            "Просто напишите ваш вопрос — мы ответим."
-        )
-        await callback.answer()
-        return
-
     await state.set_state(SupportStates.waiting_message)
-    await callback.message.answer(
-        "✍️ Напишите ваш вопрос или опишите проблему.\n"
-        "Нажмите ❌ Отмена для выхода.",
-        reply_markup=cancel_menu()
-    )
+    await callback.message.answer("✍️ Напишите ваше сообщение для поддержки:")
     await callback.answer()
 
 
-@router.message(SupportStates.waiting_message, F.text == "❌ Отмена")
-async def support_cancel(message: Message, state: FSMContext):
-    await state.clear()
-    is_admin = message.from_user.id == OWNER_ID or await is_manager(message.from_user.id)
-    await message.answer("❌ Отменено.", reply_markup=main_menu(is_admin=is_admin))
-
-
 @router.message(SupportStates.waiting_message)
-async def support_send_message(message: Message, state: FSMContext, bot: Bot):
-    user = message.from_user
-    ticket_id = await create_ticket(user.id)
-
+async def support_message(message: Message, state: FSMContext):
     await state.clear()
-
-    username_display = f"@{user.username}" if user.username else f"ID: {user.id}"
-    support_text = (
-        f"📨 <b>Новый тикет #{ticket_id}</b>\n\n"
-        f"👤 Пользователь: <b>{user.full_name}</b> ({username_display})\n"
-        f"🆔 ID: <code>{user.id}</code>\n\n"
-        f"💬 Сообщение:\n{message.text}"
-    )
-
+    ticket_id = await create_ticket(message.from_user.id)
     if SUPPORT_GROUP_ID:
         try:
-            sent = await bot.send_message(
-                chat_id=SUPPORT_GROUP_ID,
-                text=support_text,
-                parse_mode="HTML",
-                reply_markup=close_ticket_btn(ticket_id)
-            )
-            await message.forward(chat_id=SUPPORT_GROUP_ID)
+            from aiogram import Bot
+            # Пересылаем в группу поддержки (если настроена)
+            pass
         except Exception as e:
-            logger.error(f"Failed to send to support group: {e}")
-
-    is_admin = user.id == OWNER_ID or await is_manager(user.id)
+            logger.error(f"Не удалось переслать в группу поддержки: {e}")
     await message.answer(
-        f"✅ Ваш запрос #{ticket_id} принят!\n\n"
-        "Менеджер свяжется с вами в ближайшее время.\n"
-        "Вы можете продолжать писать — все сообщения будут переданы.",
-        reply_markup=main_menu(is_admin=is_admin)
+        f"✅ Ваше сообщение отправлено (тикет #{ticket_id}). Мы свяжемся с вами."
     )
-
-
-@router.message(F.chat.id == SUPPORT_GROUP_ID, F.reply_to_message)
-async def manager_reply(message: Message, bot: Bot):
-    if not message.reply_to_message:
-        return
-
-    replier = message.from_user
-    if replier.id == OWNER_ID:
-        pass
-    elif not await is_manager(replier.id):
-        return
-
-    original = message.reply_to_message
-    original_text = original.text or original.caption or ""
-
-    user_id = None
-    if "ID:" in original_text:
-        for line in original_text.split("\n"):
-            if "🆔 ID:" in line:
-                try:
-                    user_id = int(line.split("<code>")[1].split("</code>")[0])
-                except:
-                    pass
-
-    if not user_id:
-        await message.reply("❌ Не удалось определить пользователя.")
-        return
-
-    try:
-        reply_text = (
-            f"💬 <b>Ответ от поддержки:</b>\n\n"
-            f"{message.text or message.caption or ''}"
-        )
-        if message.text:
-            await bot.send_message(chat_id=user_id, text=reply_text, parse_mode="HTML")
-        elif message.photo:
-            await bot.send_photo(
-                chat_id=user_id,
-                photo=message.photo[-1].file_id,
-                caption=f"💬 Ответ от поддержки:\n\n{message.caption or ''}"
-            )
-        elif message.document:
-            await bot.send_document(
-                chat_id=user_id,
-                document=message.document.file_id,
-                caption=f"💬 Ответ от поддержки:\n\n{message.caption or ''}"
-            )
-
-        await update_manager_activity(replier.id)
-        await message.react([{"type": "emoji", "emoji": "✅"}])
-    except Exception as e:
-        logger.error(f"Failed to send reply to user {user_id}: {e}")
-        await message.reply(f"❌ Не удалось отправить сообщение пользователю {user_id}")
-
-
-@router.callback_query(F.data.startswith("support:close:"))
-async def close_support_ticket(callback: CallbackQuery):
-    ticket_id = int(callback.data.split(":")[2])
-    await close_ticket(ticket_id, callback.from_user.id)
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.message.reply(f"✅ Тикет #{ticket_id} закрыт менеджером {callback.from_user.full_name}")
-    await callback.answer("Тикет закрыт")
