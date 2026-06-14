@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
@@ -8,10 +9,11 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN, LOG_LEVEL
 from database import init_db
-from middlewares.auth import AuthMiddleware
-from middlewares.antispam import AntiSpamMiddleware
-from handlers import admin, users, support
-
+from auth import AuthMiddleware
+from antispam import AntiSpamMiddleware
+import admin
+import users
+import support
 
 def setup_logging():
     logging.basicConfig(
